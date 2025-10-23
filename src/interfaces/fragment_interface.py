@@ -16,8 +16,7 @@ class FragmentInterface:
         Returns:
             Fragment data
         """
-        # Implementation for interactive input
-        pass
+        raise NotImplementedError("Implementation for interactive input")
 
     def import_fragment_file(self, file_path):
         """
@@ -29,8 +28,7 @@ class FragmentInterface:
         Returns:
             Fragment data
         """
-        # Implementation for file import
-        pass
+        raise NotImplementedError("Implementation for file import")
 
     def define_connection_points(self, fragment, connection_atoms):
         """
@@ -43,5 +41,4 @@ class FragmentInterface:
         Returns:
             Fragment with defined connection points
         """
-        # Implementation for connection point definition
-        pass
+        raise NotImplementedError("Implementation for connection point definition")

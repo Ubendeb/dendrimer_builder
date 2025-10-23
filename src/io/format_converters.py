@@ -17,8 +17,7 @@ class FormatConverters:
         Returns:
             SMILES string
         """
-        # Implementation for MOL to SMILES conversion
-        pass
+        raise NotImplementedError("Implementation for MOL to SMILES conversion")
 
     @staticmethod
     def smiles_to_mol(smiles_string):
@@ -31,8 +30,7 @@ class FormatConverters:
         Returns:
             Molecule object
         """
-        # Implementation for SMILES to MOL conversion
-        pass
+        raise NotImplementedError("Implementation for SMILES to MOL conversion")
 
     @staticmethod
     def convert_format(input_molecule, output_format):
@@ -46,5 +44,4 @@ class FormatConverters:
         Returns:
             Converted molecule
         """
-        # Implementation for format conversion
-        pass
+        raise NotImplementedError("Implementation for format conversion")

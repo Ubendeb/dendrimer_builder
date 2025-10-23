@@ -18,8 +18,8 @@ class ChemistryOperations:
         Returns:
             Merged molecule
         """
-        # Implementation for merging molecules
-        pass
+        raise NotImplementedError("Implementation for merging molecules")
+
 
     @staticmethod
     def remove_atoms(molecule, atom_indices):
@@ -33,8 +33,7 @@ class ChemistryOperations:
         Returns:
             Modified molecule
         """
-        # Implementation for atom removal
-        pass
+        raise NotImplementedError("Implementation for atom removal")
 
     @staticmethod
     def add_bond(molecule, atom1_idx, atom2_idx, bond_order=1):
@@ -50,5 +49,4 @@ class ChemistryOperations:
         Returns:
             Modified molecule with new bond
         """
-        # Implementation for adding bonds
-        pass
+        raise NotImplementedError("Implementation for adding bonds")

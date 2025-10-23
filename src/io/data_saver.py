@@ -16,8 +16,7 @@ class DataSaver:
             file_path: Output file path
             file_format: Output format
         """
-        # Implementation for molecule saving
-        pass
+        raise NotImplementedError("Implementation for molecule saving")
 
     @staticmethod
     def save_dendrimer_report(dendrimer, file_path):
@@ -28,8 +27,7 @@ class DataSaver:
             dendrimer: Dendrimer structure
             file_path: Output file path
         """
-        # Implementation for report generation
-        pass
+        raise NotImplementedError("Implementation for report generation")
 
     @staticmethod
     def save_construction_log(builder, file_path):
@@ -40,5 +38,4 @@ class DataSaver:
             builder: Builder instance
             file_path: Output file path
         """
-        # Implementation for log saving
-        pass
+        raise NotImplementedError("Implementation for log saving")

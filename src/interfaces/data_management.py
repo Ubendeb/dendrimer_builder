@@ -18,8 +18,7 @@ class DataManager:
         Args:
             file_path: Output file path
         """
-        # Implementation for project saving
-        pass
+        raise NotImplementedError("Implementation for project saving")
 
     def load_project(self, file_path):
         """
@@ -31,8 +30,7 @@ class DataManager:
         Returns:
             Loaded project data
         """
-        # Implementation for project loading
-        pass
+        raise NotImplementedError("Implementation for project loading")
 
     def export_configuration(self, config_name):
         """
@@ -44,8 +42,7 @@ class DataManager:
         Returns:
             Configuration data
         """
-        # Implementation for configuration export
-        pass
+        raise NotImplementedError("Implementation for configuration export")
 
     def import_configuration(self, config_data):
         """
@@ -54,5 +51,4 @@ class DataManager:
         Args:
             config_data: Configuration data
         """
-        # Implementation for configuration import
-        pass
+        raise NotImplementedError("Implementation for configuration import")

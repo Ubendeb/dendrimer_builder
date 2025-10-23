@@ -21,8 +21,8 @@ class StructureValidator:
         Returns:
             bool: True if connection is valid
         """
-        # Implementation for connection validation
-        return True
+        raise NotImplementedError("Implementation for connection validation")
+
 
     def validate_structure(self, molecule):
         """
@@ -35,7 +35,7 @@ class StructureValidator:
             tuple: (is_valid, error_message)
         """
         # Implementation for structure validation
-        return True, "Structure is valid"
+        raise NotImplementedError("Implementation for structure validation")
 
     def add_validation_rule(self, rule_name, rule_function):
         """Add custom validation rule."""

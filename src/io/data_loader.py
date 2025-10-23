@@ -17,8 +17,7 @@ class DataLoader:
         Returns:
             Molecule object
         """
-        # Implementation for SMILES loading
-        pass
+        raise NotImplementedError("Implementation for SMILES loading")
 
     @staticmethod
     def load_file(file_path, file_format=None):
@@ -32,8 +31,7 @@ class DataLoader:
         Returns:
             Molecule object
         """
-        # Implementation for file loading
-        pass
+        raise NotImplementedError("Implementation for file loading")
 
     @staticmethod
     def load_fragment_library(library_path):
@@ -46,5 +44,4 @@ class DataLoader:
         Returns:
             Dictionary of fragments
         """
-        # Implementation for fragment library loading
-        pass
+        raise NotImplementedError("Implementation for fragment library loading")

@@ -34,8 +34,7 @@ class ConstructionInterface:
         Returns:
             Preview data
         """
-        # Implementation for generation preview
-        pass
+        raise NotImplementedError("Implementation for generation preview")
 
     def optimize_structure(self, dendrimer):
         """
@@ -47,5 +46,4 @@ class ConstructionInterface:
         Returns:
             Optimized dendrimer
         """
-        # Implementation for structure optimization
-        pass
+        raise NotImplementedError("Implementation for structure optimization")
