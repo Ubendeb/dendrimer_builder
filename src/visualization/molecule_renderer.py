@@ -1,6 +1,12 @@
 """
 Molecular visualization and rendering.
 """
+from rdkit import Chem
+from rdkit.Chem import Draw
+from rdkit.Chem.Draw import IPythonConsole
+
+IPythonConsole.ipython_useSVG = True
+
 
 class MoleculeRenderer:
     """Handles molecular visualization."""
@@ -8,44 +14,30 @@ class MoleculeRenderer:
     def __init__(self):
         self.render_styles = {}
 
-    def render_2d(self, molecule, highlight_atoms=None):
+    def render_2d(self, mol, title="", highlight_atoms=None):
         """
         Render 2D molecular structure.
 
         Args:
-            molecule: Molecule to render
+            mol: Molecule to render
             highlight_atoms: Atoms to highlight
+            title: Name of molecule
 
         Returns:
             2D visualization
         """
-        # Implementation for 2D rendering
-        pass
+        if mol is None:
+            print(f"{title}: None")
+            return None
 
-    def render_3d(self, molecule, conformation_idx=0):
-        """
-        Render 3D molecular structure.
+        if title is "":
+            title = f"{Chem.MolToSmiles(mol)}"
 
-        Args:
-            molecule: Molecule to render
-            conformation_idx: Conformation index
+        mol_copy = Chem.Mol(mol)
+        for atom in mol_copy.GetAtoms():
+            atom.SetProp('atomNote', str(atom.GetIdx()))
 
-        Returns:
-            3D visualization
-        """
-        # Implementation for 3D rendering
-        pass
-
-    def render_dendrimer_growth(self, dendrimer, generations):
-        """
-        Render dendrimer growth sequence.
-
-        Args:
-            dendrimer: Dendrimer structure
-            generations: List of generations to show
-
-        Returns:
-            Growth sequence visualization
-        """
-        # Implementation for growth visualization
-        pass
+        coef = mol.GetNumAtoms()
+        img = Draw.MolToImage(mol_copy, legend=title, size=(30 * coef, 20 * coef),
+                              highlightAtoms=highlight_atoms if highlight_atoms else [])
+        return img

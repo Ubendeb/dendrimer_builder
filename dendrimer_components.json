@@ -1,0 +1,56 @@
+{
+  "core": {
+    "name": "Ethylenediamine  (Этилендиамин)",
+    "smiles": "NCCN",
+    "connection_atoms": [
+      0,
+      0,
+      3,
+      0,
+      3
+    ],
+    "replacement_groups": [
+      "H",
+      "H",
+      "H",
+      "H",
+      "H"
+    ],
+    "num_atoms": 4
+  },
+  "branch_parts": [
+    {
+      "name": "Methyl acrylate  (Метилакрилат)",
+      "smiles": "C=CC(OC)=O",
+      "connection_atoms": [
+        0,
+        2
+      ],
+      "replacement_groups": [
+        "",
+        "OC"
+      ],
+      "num_atoms": 6
+    },
+    {
+      "name": "Ethylenediamine  (Этилендиамин)",
+      "smiles": "NCCN",
+      "connection_atoms": [
+        0,
+        0,
+        3
+      ],
+      "replacement_groups": [
+        "H",
+        "H",
+        "H"
+      ],
+      "num_atoms": 4
+    }
+  ],
+  "core_name": "Ethylenediamine  (Этилендиамин)",
+  "branch_names": [
+    "Methyl acrylate  (Метилакрилат)",
+    "Ethylenediamine  (Этилендиамин)"
+  ]
+}

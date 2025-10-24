@@ -1,13 +1,14 @@
 """
 Basic chemistry operations for molecular manipulation.
 """
+from rdkit import Chem
 
 
 class ChemistryOperations:
     """Provides basic chemistry operations."""
 
     @staticmethod
-    def merge_molecules(mol1, mol2):
+    def merge_molecules( mol1, mol2, atom_idx1, atom_idx2, bond_order=1):
         """
         Merge two molecules into one.
 
@@ -18,8 +19,17 @@ class ChemistryOperations:
         Returns:
             Merged molecule
         """
-        raise NotImplementedError("Implementation for merging molecules")
+        if mol1 is None or mol2 is None:
+            return None
 
+            # Создаем редактируемую молекулу из первой
+        combined = Chem.RWMol(mol1)
+
+        # Добавляем вторую молекулу
+        mol2_frag = Chem.Mol(mol2)
+        combined.InsertMol(mol2_frag)
+
+        return combined.GetMol()
 
     @staticmethod
     def remove_atoms(molecule, atom_indices):
