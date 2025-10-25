@@ -4,6 +4,7 @@ Basic chemistry operations for molecular manipulation.
 from collections import deque
 
 import matplotlib.pyplot as plt
+from rdkit import Chem
 
 from src.core.replacers.bond import BondBreakReplacementParser
 from src.core.replacers.hydrogen import HydrogenReplacementParser
@@ -29,6 +30,96 @@ class ChemistryOperations:
         self._print_replacement_analysis(mol, connection_atom, connection_atom_idx, replacement_spec, replacement_info)
 
         return self._process_replacement_cases(mol, connection_atom, connection_atom_idx, replacement_info)
+
+    def reduce(self, mol, connection_atom_idx):
+        """
+        Уменьшает молекулу согласно replacement group спецификации.
+        Возвращает новую молекулу с сохраненными метаданными.
+        """
+        analysis_result = self.analyze_replacement_structure(mol, connection_atom_idx)
+        atoms_to_remove = analysis_result['atoms']
+        bond_to_break = analysis_result['bond_to_break']
+
+        print(f"\n=== ВЫПОЛНЕНИЕ REDUCE ===")
+        print(f"Атомы для удаления: {atoms_to_remove}")
+        print(f"Связь для разрыва: {bond_to_break}")
+
+        # Создаем редактируемую молекулу
+        editable_mol = Chem.RWMol(mol)
+
+        if atoms_to_remove:
+            # Случай 1: Удаляем указанные атомы (хвост или ветка)
+            self._remove_atoms_with_metadata(editable_mol, atoms_to_remove)
+            print(f"Удалены атомы: {atoms_to_remove}")
+
+        elif bond_to_break is not None:
+            # Случай 2: Разрываем указанную связь (уменьшаем кратность)
+            self._reduce_bond_order(editable_mol, bond_to_break)
+            print(f"Уменьшена кратность связи: {bond_to_break}")
+
+        else:
+            # Случай 3: Удаляем водород (просто удаляем connection atom)
+            self._remove_hydrogen_replacement(editable_mol, connection_atom_idx)
+
+        reduced_mol = editable_mol.GetMol()
+
+        print("Reduce завершен успешно")
+        return reduced_mol
+
+    def _remove_atoms_with_metadata(self, editable_mol, atom_indices):
+        """Удаляет атомы с сохранением метаданных оставшихся атомов."""
+        # Сортируем индексы в обратном порядке чтобы избежать проблем со сдвигом индексов
+        for atom_idx in sorted(atom_indices, reverse=True):
+            if atom_idx < editable_mol.GetNumAtoms():
+                editable_mol.RemoveAtom(atom_idx)
+
+    def _reduce_bond_order(self, editable_mol, bond_idx):
+        """Уменьшает кратность связи."""
+        if bond_idx < editable_mol.GetNumBonds():
+            bond = editable_mol.GetBondWithIdx(bond_idx)
+            current_order = bond.GetBondType()
+
+            # Уменьшаем кратность связи
+            if current_order == Chem.BondType.TRIPLE:
+                new_order = Chem.BondType.DOUBLE
+            elif current_order == Chem.BondType.DOUBLE:
+                new_order = Chem.BondType.SINGLE
+            elif current_order == Chem.BondType.SINGLE:
+                new_order = Chem.BondType.SINGLE  # Оставляем одинарной
+            else:
+                new_order = Chem.BondType.SINGLE
+
+            # Получаем индексы атомов связи
+            begin_atom = bond.GetBeginAtomIdx()
+            end_atom = bond.GetEndAtomIdx()
+
+            # Удаляем старую связь и создаем новую с уменьшенной кратностью
+            editable_mol.RemoveBond(begin_atom, end_atom)
+            editable_mol.AddBond(begin_atom, end_atom, new_order)
+
+    def _remove_hydrogen_replacement(self, editable_mol, connection_atom_idx):
+        """Удаляет водород у атома соединения (уменьшает количество водородов на 1)."""
+        if connection_atom_idx >= editable_mol.GetNumAtoms():
+            return
+
+        connection_atom = editable_mol.GetAtomWithIdx(connection_atom_idx)
+
+        # Получаем общее количество водородов (явных + неявных)
+        current_h_count = connection_atom.GetTotalNumHs()
+
+        if current_h_count > 0:
+            # Уменьшаем общее количество водородов на 1
+            new_h_count = current_h_count - 1
+            connection_atom.SetTotalNumHs(new_h_count)
+            print(f"Удален один водород у атома {connection_atom_idx}. H: {current_h_count}→{new_h_count}")
+        else:
+            print(f"Предупреждение: у атома {connection_atom_idx} нет водородов для удаления")
+
+
+
+
+
+
 
     def _parse_replacement_spec(self, replacement_spec, mol, connection_atom_idx):
         """Парсит спецификацию replacement group."""
@@ -251,6 +342,8 @@ class ChemistryOperations:
     def _find_matching_branch(self, mol, connection_atom, connection_atom_idx, replacement_mol):
         """Находит соответствующую ветку в молекуле."""
         print(f"\nПоиск соответствующей ветки:")
+        if replacement_mol is None:
+            return []
         first_replacement_atom = replacement_mol.GetAtomWithIdx(0)
         expected_symbol = first_replacement_atom.GetSymbol()
         expected_degree = first_replacement_atom.GetDegree()

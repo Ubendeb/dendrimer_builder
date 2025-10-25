@@ -7,6 +7,6 @@ class HydrogenReplacementParser(ReplacementParser):
     def parse(self, spec, mol=None, connection_atom_idx=None):
         from rdkit import Chem
         return {
-            'mol': Chem.MolFromSmiles('[H]'),
+            'mol': None,
             'type': 'hydrogen'
         }
