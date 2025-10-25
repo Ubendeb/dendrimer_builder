@@ -14,7 +14,7 @@ class MoleculeRenderer:
     def __init__(self):
         self.render_styles = {}
 
-    def render_2d(self, mol, title="", highlight_atoms=None, display_props=None):
+    def render_2d(self, mol, title="", highlight_atoms=None, highlight_bonds =None, display_props=None):
         """
         Render 2D molecular structure.
 
@@ -40,7 +40,8 @@ class MoleculeRenderer:
         coef = mol.GetNumAtoms()
 
         img = Draw.MolToImage(mol_copy, legend=title, size=(max(30 * coef, 300), max(20 * coef, 200)),
-                              highlightAtoms=highlight_atoms if highlight_atoms else None)
+                              highlightAtoms=highlight_atoms if highlight_atoms else [],
+                              highlightBonds=highlight_bonds if highlight_bonds else [])
         return img
 
     def _set_atom_display_notes(self, mol, display_props=None):

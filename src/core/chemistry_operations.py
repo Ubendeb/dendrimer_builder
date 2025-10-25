@@ -4,7 +4,11 @@ Basic chemistry operations for molecular manipulation.
 from collections import deque
 
 import matplotlib.pyplot as plt
-from rdkit import Chem
+
+from src.core.replacers.bond import BondBreakReplacementParser
+from src.core.replacers.hydrogen import HydrogenReplacementParser
+from src.core.replacers.index_tail import TailReplacementParser
+from src.core.replacers.smiles_tail import SmilesReplacementParser
 
 
 class ChemistryOperations:
@@ -13,19 +17,90 @@ class ChemistryOperations:
     def analyze_replacement_structure(self, mol, connection_atom_idx):
         """
         Анализирует структуру replacement group и находит соответствующие атомы в молекуле.
+        Возвращает словарь с ключами:
+        - 'atoms': список атомов для удаления/замещения
+        - 'bond_to_break': индекс связи для разрыва (если есть)
         """
         self._print_analysis_header()
         connection_atom = mol.GetAtomWithIdx(connection_atom_idx)
+        replacement_spec = connection_atom.GetProp('replacement_group')
 
-        replacement_group_smiles = connection_atom.GetProp('replacement_group')
-        replacement_mol = Chem.MolFromSmiles(replacement_group_smiles)
+        replacement_info = self._parse_replacement_spec(replacement_spec, mol, connection_atom_idx)
+        self._print_replacement_analysis(mol, connection_atom, connection_atom_idx, replacement_spec, replacement_info)
 
-        self._print_basic_info(connection_atom, connection_atom_idx, replacement_group_smiles)
-        self._analyze_replacement_structure(replacement_mol)
+        return self._process_replacement_cases(mol, connection_atom, connection_atom_idx, replacement_info)
+
+    def _parse_replacement_spec(self, replacement_spec, mol, connection_atom_idx):
+        """Парсит спецификацию replacement group."""
+        parser = self._get_replacement_parser(replacement_spec)
+        return parser.parse(replacement_spec, mol, connection_atom_idx)
+
+    def _print_replacement_analysis(self, mol, connection_atom, connection_atom_idx, replacement_spec,
+                                    replacement_info):
+        """Выводит анализ replacement group."""
+        self._print_basic_info(connection_atom, connection_atom_idx, replacement_spec)
+
+        replacement_mol = replacement_info.get('mol')
+        if replacement_mol:
+            self._analyze_replacement_structure(replacement_mol)
+
         self._analyze_connection_neighbors(mol, connection_atom, connection_atom_idx)
 
-        candidate_atoms = self._find_matching_branch(mol, connection_atom, connection_atom_idx, replacement_mol)
-        return candidate_atoms
+        break_bond_info = replacement_info.get('break_bond')
+        if break_bond_info:
+            bond_to_break = self._find_bond_to_break(mol, connection_atom_idx, break_bond_info)
+            print(f"Связь для разрыва: {bond_to_break}")
+
+    def _process_replacement_cases(self, mol, connection_atom, connection_atom_idx, replacement_info):
+        """Обрабатывает различные случаи replacement."""
+        tail_atoms = replacement_info.get('tail_atoms', [])
+        if tail_atoms:
+            print(f"Атомы хвоста по original_index: {tail_atoms}")
+            return {'atoms': tail_atoms, 'bond_to_break': None}
+
+        # Специальная обработка для водорода
+        replacement_mol = replacement_info.get('mol')
+        if replacement_mol and replacement_mol.GetAtomWithIdx(0).GetSymbol() == "H":
+            print("   Для водорода - возвращаем пустой список (удаление без замещения)")
+            return {'atoms': [], 'bond_to_break': None}
+
+        # Специальная обработка для связей (=1, #3 и т.д.)
+        break_bond_info = replacement_info.get('break_bond')
+        if break_bond_info:
+            bond_to_break = self._find_bond_to_break(mol, connection_atom_idx, break_bond_info)
+            print(f"   Для спецификации связи - разрыв связи {bond_to_break}")
+            return {'atoms': [], 'bond_to_break': bond_to_break}
+
+        atoms = self._find_matching_branch(mol, connection_atom, connection_atom_idx, replacement_mol)
+        return {'atoms': atoms, 'bond_to_break': None}
+
+    def _get_replacement_parser(self, replacement_spec):
+        """Возвращает appropriate parser based on replacement specification format."""
+        if replacement_spec == "H":
+            return HydrogenReplacementParser()
+        elif '_' in replacement_spec:
+            return TailReplacementParser()
+        elif '#' in replacement_spec or '=' in replacement_spec:
+            return BondBreakReplacementParser()
+        else:
+            return SmilesReplacementParser()
+
+    def _find_bond_to_break(self, mol, connection_atom_idx, break_bond_info):
+        """Находит связь для разрыва на основе спецификации."""
+        bond_type, target_idx = break_bond_info
+        connection_atom = mol.GetAtomWithIdx(connection_atom_idx)
+
+        for neighbor in connection_atom.GetNeighbors():
+            if self._get_original_index(neighbor) == target_idx:
+                bond = mol.GetBondBetweenAtoms(connection_atom_idx, neighbor.GetIdx())
+                return bond.GetIdx() if bond else None
+        return None
+
+    def _get_original_index(self, atom):
+        """Возвращает original index атома из свойств или использует текущий индекс."""
+        if atom.HasProp('original_index'):
+            return int(atom.GetProp('original_index'))
+        return atom.GetIdx()
 
     def _collect_subgraph_atoms_and_bonds(self, mol, connection_atom_idx, max_depth):
         """Собирает атомы и связи для визуализации подграфа."""
@@ -154,6 +229,10 @@ class ChemistryOperations:
     def _analyze_replacement_structure(self, replacement_mol):
         """Анализирует структуру replacement group."""
         print(f"\nСтруктура replacement_group:")
+        if replacement_mol is None:
+            print("   Хвостовая спецификация - молекула не требуется")
+            return
+
         for i, atom in enumerate(replacement_mol.GetAtoms()):
             neighbors = [f"{n.GetSymbol()}({n.GetIdx()})" for n in atom.GetNeighbors()]
             print(f"   Атом {i}: {atom.GetSymbol()} → соседи: {neighbors}")
