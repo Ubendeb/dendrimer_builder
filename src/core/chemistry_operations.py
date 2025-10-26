@@ -98,24 +98,32 @@ class ChemistryOperations:
             editable_mol.AddBond(begin_atom, end_atom, new_order)
 
     def _remove_hydrogen_replacement(self, editable_mol, connection_atom_idx):
-        """Удаляет водород у атома соединения (уменьшает количество водородов на 1)."""
+        """Добавляет явные водороды только к атому соединения."""
         if connection_atom_idx >= editable_mol.GetNumAtoms():
             return
 
         connection_atom = editable_mol.GetAtomWithIdx(connection_atom_idx)
 
-        # Получаем общее количество водородов (явных + неявных)
+        # Получаем текущее количество водородов у целевого атома
         current_h_count = connection_atom.GetTotalNumHs()
 
-        if current_h_count > 0:
-            # Уменьшаем общее количество водородов на 1
-            new_h_count = current_h_count - 1
-            connection_atom.SetTotalNumHs(new_h_count)
-            print(f"Удален один водород у атома {connection_atom_idx}. H: {current_h_count}→{new_h_count}")
-        else:
-            print(f"Предупреждение: у атома {connection_atom_idx} нет водородов для удаления")
+        if current_h_count == 0:
+            print(f"Предупреждение: у атома {connection_atom_idx} нет водородов")
+            return
+        current_h_count = current_h_count-1
+        connection_atom.SetNumExplicitHs(current_h_count)
 
+        connection_atom.SetNoImplicit(True)
 
+        editable_mol.UpdatePropertyCache()
+
+        try:
+            Chem.SanitizeMol(editable_mol, sanitizeOps=Chem.SANITIZE_ALL ^ Chem.SANITIZE_ADJUSTHS)
+        except:
+            # Если санитизация не проходит, просто обновляем свойства
+            editable_mol.UpdatePropertyCache()
+
+        print(f"Добавлено {current_h_count} явных водородов к атому {connection_atom_idx}")
 
 
 
