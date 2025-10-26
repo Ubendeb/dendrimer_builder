@@ -1,6 +1,8 @@
 """
 Core module for molecular fragment management and operations.
 """
+from .molecule_reducer import MoleculeReducer
+from .replacement_analyzer import ReplacementAnalyzer
 from .replacers.replacer import ReplacementParser
 from .replacers.bond import BondBreakReplacementParser
 from .replacers.hydrogen import HydrogenReplacementParser
@@ -21,4 +23,6 @@ __all__ = [
     'HydrogenReplacementParser',
     'TailReplacementParser',
     'SmilesReplacementParser',
+    'MoleculeReducer',
+    'ReplacementAnalyzer',
 ]
