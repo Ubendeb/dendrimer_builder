@@ -15,12 +15,12 @@ class BaseBuilder(ABC):
     @abstractmethod
     def add_component(self, component_type, component):
         """Add a construction component."""
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def build(self):
         """Execute the construction process."""
-        pass
+        raise NotImplementedError
 
     def get_construction_steps(self):
         """Get list of construction steps."""

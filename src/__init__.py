@@ -7,15 +7,15 @@ __author__ = "Your Name"
 __description__ = "Modular dendrimer construction system"
 
 from .core import FragmentManager, IndexTracker, StructureValidator, ChemistryOperations
-from .builders import DendrimerBuilder, ConnectionStrategies
+from .builders import DendrimerBuilder
 from .io import DataLoader, DataSaver, FormatConverters
 from .visualization import MoleculeRenderer, ProgressTracker
-from .interfaces import FragmentInterface, ConstructionInterface, DataManager
+from .interfaces import FragmentInterface, ConstructionInterface, FragmentDataManager
 
 __all__ = [
     'FragmentManager', 'IndexTracker', 'StructureValidator', 'ChemistryOperations',
-    'DendrimerBuilder', 'ConnectionStrategies',
+    'DendrimerBuilder',
     'DataLoader', 'DataSaver', 'FormatConverters',
     'MoleculeRenderer', 'ProgressTracker',
-    'FragmentInterface', 'ConstructionInterface', 'DataManager'
+    'FragmentInterface', 'ConstructionInterface', 'FragmentDataManager'
 ]
