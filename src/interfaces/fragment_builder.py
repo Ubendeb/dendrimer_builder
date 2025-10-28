@@ -5,8 +5,8 @@ Interactive interface for molecular fragment input and management.
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from rdkit import Chem
-from rdkit.Chem import Draw
 from rdkit.Chem import Descriptors
+from rdkit.Chem import Draw
 
 from src import StructureValidator
 
@@ -379,7 +379,7 @@ class DendrimerFragmentBuilder:
 
             # Display all cards in a scrollable area
             display(widgets.VBox(cards, layout=widgets.Layout(
-                max_height='400px',
+                min_height='400px',
                 overflow_y='auto',
                 border='1px solid #ccc',
                 padding='10px'

@@ -1,47 +1,73 @@
 """
-Format conversion utilities.
+Format conversion utilities for molecular data.
 """
+from rdkit import Chem
 
 
 class FormatConverters:
-    """Provides format conversion utilities."""
+    """Provides format conversion utilities between different molecular representations."""
 
     @staticmethod
-    def mol_to_smiles(molecule):
+    def json_to_metadata_mol(json_data):
         """
-        Convert molecule to SMILES string.
+        Convert JSON representation to molecule with metadata.
 
         Args:
-            molecule: Input molecule
+            json_data: Dictionary with molecular data in JSON format
 
         Returns:
-            SMILES string
+            Molecule object with connection metadata
         """
-        raise NotImplementedError("Implementation for MOL to SMILES conversion")
+        smiles = json_data["smiles"]
+        mol = Chem.MolFromSmiles(smiles)
+
+        # Freeze original atom indices
+        for i, atom in enumerate(mol.GetAtoms()):
+            atom.SetProp("original_index", str(i))
+
+        # Set connection metadata
+        connection_atoms = json_data["connection_atoms"]
+        replacement_groups = json_data["replacement_groups"]
+
+        for i, atom_idx in enumerate(connection_atoms):
+            atom = mol.GetAtomWithIdx(atom_idx)
+            atom.SetProp("is_connection", "true")
+            atom.SetProp("replacement_group", replacement_groups[i])
+
+            # Set connection type based on position
+            if i == 0:
+                atom.SetProp("connection_type", "to_core")
+            else:
+                atom.SetProp("connection_type", "to_branch")
+
+        return mol
 
     @staticmethod
-    def smiles_to_mol(smiles_string):
+    def metadata_mol_to_json(mol):
         """
-        Convert SMILES string to molecule.
+        Convert molecule with metadata to JSON representation.
 
         Args:
-            smiles_string: SMILES string
+            mol: Molecule object with connection metadata
 
         Returns:
-            Molecule object
+            Dictionary with molecular data in JSON format
         """
-        raise NotImplementedError("Implementation for SMILES to MOL conversion")
+        smiles = Chem.MolToSmiles(mol)
 
-    @staticmethod
-    def convert_format(input_molecule, output_format):
-        """
-        Convert molecule to different format.
+        # Extract connection information from metadata
+        connection_atoms = []
+        replacement_groups = []
 
-        Args:
-            input_molecule: Input molecule
-            output_format: Desired output format
+        for atom in mol.GetAtoms():
+            if atom.HasProp("is_connection") and atom.GetProp("is_connection") == "true":
+                connection_atoms.append(atom.GetIdx())
+                replacement_groups.append(atom.GetProp("replacement_group"))
 
-        Returns:
-            Converted molecule
-        """
-        raise NotImplementedError("Implementation for format conversion")
+        return {
+            "name": "",  # Name would need to be provided separately
+            "smiles": smiles,
+            "connection_atoms": connection_atoms,
+            "replacement_groups": replacement_groups,
+            "num_atoms": mol.GetNumAtoms()
+        }
