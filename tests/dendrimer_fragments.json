@@ -1,30 +1,23 @@
-[
-  {
-    "name": "Methyl acrylate  (Метилакрилат)",
+{
+  "Methyl_acrylate": {
     "smiles": "C=CC(OC)=O",
-    "connection_atoms": [
-      0,
-      2
-    ],
-    "replacement_groups": [
-      "=1",
-      "OCH3"
-    ],
+    "type": "monomer",
+    "connection_points": [0, 2],
+    "replacement_groups": ["=1", "OCH3"],
     "num_atoms": 6
   },
-  {
-    "name": "Ethylenediamine  (Этилендиамин)",
+  "Ethylenediamine": {
+    "smiles": "NCCN", 
+    "type": "core",
+    "connection_points": [0, 0, 3],
+    "replacement_groups": ["H", "H", "H"],
+    "num_atoms": 4
+  },
+  "NCCN_core": {
     "smiles": "NCCN",
-    "connection_atoms": [
-      0,
-      0,
-      3
-    ],
-    "replacement_groups": [
-      "H",
-      "H",
-      "H"
-    ],
+    "type": "core", 
+    "connection_points": [0, 0, 0, 3, 3],
+    "replacement_groups": ["H", "H", "H", "H", "H"],
     "num_atoms": 4
   }
-]
+}

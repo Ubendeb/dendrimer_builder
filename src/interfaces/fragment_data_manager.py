@@ -4,6 +4,8 @@ import ipywidgets as widgets
 from IPython.core.display_functions import clear_output, display
 from rdkit import Chem
 
+from src import DataSaver, DataLoader
+
 
 class FragmentDataManager:
     """Manages fragment data storage and retrieval operations."""
@@ -65,29 +67,12 @@ class FragmentDataManager:
     def save_fragments_to_file(self, filename='dendrimer_fragments.json'):
         """Save fragments to JSON file."""
         fragments_data = self.builder.get_fragments_data()
-
-        serializable_data = []
-        for frag in fragments_data:
-            serializable_frag = frag.copy()
-            if 'mol' in serializable_frag:
-                del serializable_frag['mol']
-            serializable_data.append(serializable_frag)
-
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(serializable_data, f, indent=2, ensure_ascii=False)
-
-        print(f"Data saved to file: {filename}")
-        print(f"Fragments saved: {len(serializable_data)}")
+        DataSaver.save_fragment_data(fragments_data, filename)
 
     def load_fragments_from_file(self, filename='dendrimer_fragments.json'):
         """Load fragments from JSON file."""
         try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                fragments_data = json.load(f)
-
-            for frag in fragments_data:
-                frag['mol'] = Chem.MolFromSmiles(frag['smiles'])
-
+            fragments_data = DataLoader.load_fragment_data(filename)
             self.builder.fragments = fragments_data
             self.builder.update_fragments_display()
             print(f"Data loaded from file: {filename}")

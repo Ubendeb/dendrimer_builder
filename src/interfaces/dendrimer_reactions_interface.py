@@ -3,18 +3,28 @@ Dendrimer Reaction Builder Interface
 """
 import ipywidgets as widgets
 from IPython.core.display_functions import clear_output, display
-from rdkit import Chem
-from rdkit.Chem import Draw
+
+from src.interfaces.reaction_sequence_builder import ReactionSequenceBuilder
+from src.visualization.reaction_renderer import ReactionVisualizer
+from src.visualization.progress_tracker import ProgressTracker
+from src.core.chemistry_operations import ChemistryOperations
 
 
 class DendrimerReactionBuilder:
     """Interface for building dendrimer reaction sequences from fragments."""
 
-    def __init__(self, fragment_manager, chemistry_operations, molecule_renderer=None, progress_tracker=None):
+    def __init__(self, fragment_manager, chemistry_operations, molecule_renderer):
+        """
+
+        :type chemistry_operations: ChemistryOperations
+        """
         self.fragment_manager = fragment_manager
         self.chemistry_operations = chemistry_operations
         self.molecule_renderer = molecule_renderer
-        self.progress_tracker = progress_tracker
+        self.reaction_visualizer = ReactionVisualizer(molecule_renderer)
+        self.progress_tracker = ProgressTracker()
+        self.sequence_builder = ReactionSequenceBuilder(molecule_renderer, fragment_manager, chemistry_operations)
+
         self.core_fragment = None
         self.reaction_steps = []
         self.reaction_sequence = []
@@ -49,7 +59,11 @@ class DendrimerReactionBuilder:
         # Build controls
         self.preview_btn = widgets.Button(description='Preview Reactions', button_style='info')
         self.execute_btn = widgets.Button(description='Execute Reactions', button_style='success')
-        self.visualize_btn = widgets.Button(description='Visualize Reactions', button_style='primary')
+        self.visualize_btn = widgets.Button(
+            description='Visualize Reactions',
+            button_style='primary',
+            disabled=not self.molecule_renderer  # Disable if no renderer
+        )
 
         # Display areas
         self.reaction_preview = widgets.Output(
@@ -126,15 +140,6 @@ class DendrimerReactionBuilder:
         with self.status_output:
             print(f"Current steps: {self.reaction_steps}")
 
-    def _find_connection_points(self, mol, connection_type):
-        """Find atoms with specified connection type."""
-        connection_points = []
-        for atom in mol.GetAtoms():
-            if (atom.HasProp("connection_type") and
-                    atom.GetProp("connection_type") == connection_type):
-                connection_points.append(atom.GetIdx())
-        return connection_points
-
     def _on_preview_clicked(self, btn):
         """Preview reaction sequence."""
         with self.reaction_preview:
@@ -150,96 +155,35 @@ class DendrimerReactionBuilder:
                 print("Please add reaction steps")
                 return
 
-            # Initialize progress tracker if available
-            if self.progress_tracker:
-                self.progress_tracker.start_construction(len(self.reaction_steps))
-
             self.core_fragment = self.core_select.value
+
+            # Initialize progress tracker
+            self.progress_tracker.start_construction(len(self.reaction_steps))
+
             print(f"Building reaction sequence:")
             print(f"Core: {self.core_fragment}")
             print(f"Steps: {self.reaction_steps}")
 
             # Get core molecule from library
             core_data = self.fragment_manager.fragments[self.core_fragment]
-            core_mol = core_data['molecule']
+            self.core_mol = core_data['molecule']
+            self.chemistry_operations.set_atom_properties(self.core_mol,0,-1,-1)
 
-            # Set initial properties for core
-            for atom in core_mol.GetAtoms():
-                atom.SetProp("generation", "0")
-                atom.SetProp("branch", "-1")
-                atom.SetProp("step", "-1")
 
-            # Find branch connection points in core
-            branch_points = self._find_connection_points(core_mol, "to_branch")
+            # Build reaction sequence
+            self.reaction_sequence, branch_points = self.sequence_builder.build_reaction_sequence(
+                self.core_mol,
+                self.reaction_steps,
+                self.progress_tracker
+            )
+
             print(f"Found {len(branch_points)} branch connection points in core")
 
-            current_molecules = [(core_mol, 0, -1)]  # (mol, generation, branch)
-            self.reaction_sequence = []
-
-            for step_idx, step_fragment in enumerate(self.reaction_steps):
-                print(f"\n--- Step {step_idx}: {step_fragment} ---")
-
-                # Update progress
-                if self.progress_tracker:
-                    self.progress_tracker.update_progress(f"Step_{step_idx}_{step_fragment}")
-
-                step_data = self.fragment_manager.fragments[step_fragment]
-                step_mol = step_data['molecule']
-
-                next_generation_molecules = []
-
-                for mol, generation, branch in current_molecules:
-                    # Find branch connection points in current molecule
-                    mol_branch_points = self._find_connection_points(mol, "to_branch")
-                    print(f"Generation {generation}, branch {branch}: {len(mol_branch_points)} branch points")
-
-                    for branch_point_idx in mol_branch_points:
-                        # Find core connection point in step fragment
-                        step_core_points = self._find_connection_points(step_mol, "to_core")
-                        if not step_core_points:
-                            print(f"Warning: No core connection points in {step_fragment}")
-                            continue
-
-                        step_core_point = step_core_points[0]  # Use first core connection point
-
-                        # Create reaction
-                        new_mol = self.chemistry_operations.connect(
-                            base_mol=mol,
-                            base_mol_connection_atom_idx=branch_point_idx,
-                            additional_mol=step_mol,
-                            additional_mol_connection_atom_idx=step_core_point,
-                            generation=generation + 1,
-                            branch=branch_point_idx if branch == -1 else branch,
-                            step=step_idx
-                        )
-
-                        # Store reaction info
-                        reaction_info = {
-                            'generation': generation,
-                            'branch': branch,
-                            'step': step_idx,
-                            'base_mol': mol,
-                            'additional_mol': step_mol,
-                            'result_mol': new_mol,
-                            'connection_points': {
-                                'base': branch_point_idx,
-                                'additional': step_core_point
-                            }
-                        }
-                        self.reaction_sequence.append(reaction_info)
-
-                        next_generation_molecules.append((new_mol, generation + 1, branch_point_idx))
-
-                        print(
-                            f"  Reaction: branch point {branch_point_idx} + {step_fragment} -> generation {generation + 1}")
-
-                current_molecules = next_generation_molecules
-
-            # Display preview using enhanced visualization
+            # Display preview
             self._display_reaction_preview()
 
     def _display_reaction_preview(self):
-        """Display reaction sequence preview using enhanced visualization."""
+        """Display reaction sequence preview."""
         if not self.reaction_sequence:
             print("No reactions to preview")
             return
@@ -247,14 +191,25 @@ class DendrimerReactionBuilder:
         print(f"\n=== REACTION SEQUENCE PREVIEW ===")
         print(f"Total reactions: {len(self.reaction_sequence)}")
 
-        # Generate progress report if tracker available
-        if self.progress_tracker:
-            progress_report = self.progress_tracker.generate_progress_report()
-            print(f"Construction Progress: {progress_report['progress_percentage']:.1f}% complete")
-            print(f"Steps completed: {progress_report['current_step']}/{progress_report['total_steps']}")
+        # Generate progress report
+        progress_report = self.progress_tracker.generate_progress_report()
+        print(f"Construction Progress: {progress_report['progress_percentage']:.1f}% complete")
+        print(f"Steps completed: {progress_report['current_step']}/{progress_report['total_steps']}")
 
-        for i, reaction in enumerate(self.reaction_sequence):
-            print(f"\nReaction {i}:")
+        # Show reaction statistics by generation
+        reactions_by_gen = {}
+        for reaction in self.reaction_sequence:
+            gen = reaction['generation']
+            if gen not in reactions_by_gen:
+                reactions_by_gen[gen] = 0
+            reactions_by_gen[gen] += 1
+
+        for gen in sorted(reactions_by_gen.keys()):
+            print(f"Generation {gen}: {reactions_by_gen[gen]} reactions")
+
+        # Show first few reactions in detail
+        for i, reaction in enumerate(self.reaction_sequence[:3]):
+            print(f"\nSample Reaction {i}:")
             print(f"  Generation: {reaction['generation']} -> {reaction['generation'] + 1}")
             print(f"  Branch: {reaction['branch']}")
             print(f"  Step: {reaction['step']}")
@@ -272,60 +227,11 @@ class DendrimerReactionBuilder:
                 print("No reaction sequence to visualize. Please preview first.")
                 return
 
-            if not self.molecule_renderer:
-                print("Molecule renderer not available")
+            if not self.reaction_visualizer:
+                print("Molecule renderer not available for visualization")
                 return
 
-            print("Visualizing reaction sequence...")
-
-            # Visualize key reactions
-            for i, reaction in enumerate(self.reaction_sequence[:5]):  # Limit to first 5 for performance
-                print(f"\n--- Visualizing Reaction {i} ---")
-
-                # Render base molecule
-                base_img = self.molecule_renderer.render_2d(
-                    reaction['base_mol'],
-                    title=f"Base Mol - Gen {reaction['generation']}, Branch {reaction['branch']}",
-                    highlight_atoms=[reaction['connection_points']['base']],
-                    display_props=['generation', 'branch', 'step']
-                )
-
-                # Render additional molecule
-                additional_img = self.molecule_renderer.render_2d(
-                    reaction['additional_mol'],
-                    title=f"Additional Mol - {self.reaction_steps[reaction['step']]}",
-                    highlight_atoms=[reaction['connection_points']['additional']],
-                    display_props=['connection_type']
-                )
-
-                # Render result molecule
-                result_img = self.molecule_renderer.render_2d(
-                    reaction['result_mol'],
-                    title=f"Result Mol - Gen {reaction['generation'] + 1}",
-                    display_props=['generation', 'branch', 'step']
-                )
-
-                # Display all three
-                display(widgets.HBox([
-                    widgets.Image(value=base_img.data if hasattr(base_img, 'data') else self._pil_to_widget_image(base_img),
-                                layout=widgets.Layout(width='300px')),
-                    widgets.Image(value=additional_img.data if hasattr(additional_img, 'data') else self._pil_to_widget_image(additional_img),
-                                layout=widgets.Layout(width='300px')),
-                    widgets.Image(value=result_img.data if hasattr(result_img, 'data') else self._pil_to_widget_image(result_img),
-                                layout=widgets.Layout(width='300px'))
-                ]))
-
-    def _pil_to_widget_image(self, pil_img):
-        """Convert PIL image to widget-compatible format."""
-        from io import BytesIO
-        import base64
-
-        buffer = BytesIO()
-        pil_img.save(buffer, format='PNG')
-        buffer.seek(0)
-
-        image_data = base64.b64encode(buffer.read()).decode()
-        return f"data:image/png;base64,{image_data}"
+            self.reaction_visualizer.visualize_reaction_sequence(self.reaction_sequence, self.reaction_steps)
 
     def _on_execute_clicked(self, btn):
         """Execute the reaction sequence."""
@@ -349,25 +255,17 @@ class DendrimerReactionBuilder:
             if final_molecules:
                 print(f"Generated {len(final_molecules)} final molecules")
 
-                # Use molecule renderer if available, otherwise fall back to RDKit
-                if self.molecule_renderer:
-                    molecules_to_display = min(6, len(final_molecules))  # Limit for performance
-                    for i, mol in enumerate(final_molecules[:molecules_to_display]):
-                        img = self.molecule_renderer.render_2d(
-                            mol,
-                            title=f"Final_Mol_{i}",
-                            display_props=['generation', 'branch', 'step']
-                        )
-                        display(img)
-                else:
-                    # Fall back to original RDKit display
-                    img = Draw.MolsToGridImage(
-                        final_molecules,
-                        molsPerRow=3,
-                        subImgSize=(300, 300),
-                        legends=[f"Mol_{i}" for i in range(len(final_molecules))]
+
+                molecules_to_display = min(6, len(final_molecules))  # Limit for performance
+                for i, mol in enumerate(final_molecules[:molecules_to_display]):
+                    img = self.molecule_renderer.render_2d(
+                        mol,
+                        title=f"Final_Mol_{i}",
+                        display_props=['generation', 'branch', 'step']
                     )
-                    display(img)
+                    if img:
+                        display(img)
+
             else:
                 print("No final molecules generated")
 
@@ -394,11 +292,11 @@ class DendrimerReactionBuilder:
         ]))
 
         # Control buttons
-        display(widgets.HBox([
-            self.preview_btn,
-            self.visualize_btn,
-            self.execute_btn
-        ]))
+        control_buttons = [self.preview_btn, self.execute_btn]
+        if self.molecule_renderer:
+            control_buttons.insert(1, self.visualize_btn)
+
+        display(widgets.HBox(control_buttons))
 
         # Display areas
         display(widgets.HTML("<strong>Reaction Preview:</strong>"))

@@ -3,6 +3,7 @@ Loading of molecular components and data.
 """
 
 from rdkit import Chem
+import json
 
 
 class DataLoader:
@@ -54,25 +55,78 @@ class DataLoader:
             raise IOError(f"Error loading file {file_path}: {e}")
 
     @staticmethod
-    def load_fragment_library(library_path):
+    def load_fragment_data(filename):
         """
-        Load library of molecular fragments from JSON file.
+        Load fragments data from JSON file.
 
         Args:
-            library_path: Path to fragment library JSON file
+            filename: Path to JSON file
 
         Returns:
-            Dictionary of fragments
+            List of fragment data for builder
+        """
+        with open(filename, 'r', encoding='utf-8') as f:
+            loaded_data = json.load(f)
+
+        fragments_data = []
+        for frag_id, frag_data in loaded_data.items():
+            mol = Chem.MolFromSmiles(frag_data['smiles'])
+            if mol:
+                fragment_data = {
+                    'name': frag_id,
+                    'smiles': frag_data['smiles'],
+                    'connection_atoms': frag_data.get('connection_points', []),
+                    'replacement_groups': frag_data.get('replacement_groups', []),
+                    'num_atoms': frag_data['num_atoms'],
+                    'mol': mol
+                }
+                fragments_data.append(fragment_data)
+        return fragments_data
+
+    @staticmethod
+    def load_fragment_library(file_path, fragment_manager):
+        """
+        Load fragment library into FragmentManager.
+
+        Args:
+            file_path: Path to fragment library JSON file
+            fragment_manager: FragmentManager instance to populate
+
+        Returns:
+            bool: True if successful, False otherwise
         """
         try:
-            with open(library_path, 'r', encoding='utf-8') as f:
-                fragments_data = json.load(f)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                loaded_data = json.load(f)
 
-            # Convert SMILES to mol objects
-            for frag_id, frag_data in fragments_data.items():
-                if 'smiles' in frag_data:
-                    frag_data['mol'] = Chem.MolFromSmiles(frag_data['smiles'])
+            fragment_manager.fragments.clear()
+            loaded_count = 0
 
-            return fragments_data
+            for frag_id, frag_data in loaded_data.items():
+                mol = Chem.MolFromSmiles(frag_data['smiles'])
+                if mol:
+                    fragment_manager.fragments[frag_id] = {
+                        'molecule': mol,
+                        'type': frag_data['type'],
+                        'connection_points': frag_data['connection_points'],
+                        'replacement_groups': frag_data['replacement_groups'],
+                        'smiles': frag_data['smiles'],
+                        'num_atoms': frag_data['num_atoms']
+                    }
+                    loaded_count += 1
+                else:
+                    print(f"Warning: Could not parse SMILES for fragment {frag_id}")
+
+            print(f"Fragment library loaded from: {file_path}")
+            print(f"Fragments loaded: {loaded_count}")
+            return True
+
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            return False
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON format in file {file_path}: {e}")
+            return False
         except Exception as e:
-            raise IOError(f"Error loading fragment library {library_path}: {e}")
+            print(f"Error loading file: {e}")
+            return False

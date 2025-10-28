@@ -1,8 +1,3 @@
-"""
-Construction progress tracking and visualization.
-"""
-
-
 class ProgressTracker:
     """Tracks and visualizes construction progress."""
 
@@ -28,6 +23,8 @@ class ProgressTracker:
 
     def get_progress(self):
         """Get current progress percentage."""
+        if self.total_steps == 0:
+            return 0
         return (self.current_step / self.total_steps) * 100
 
     def generate_progress_report(self):

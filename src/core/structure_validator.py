@@ -3,7 +3,6 @@ Validation of molecular structures and connections.
 """
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
 
 
 class StructureValidator:

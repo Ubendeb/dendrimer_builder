@@ -5,6 +5,8 @@ Management of molecular fragments and their properties.
 import json
 from rdkit import Chem
 
+from src import DataLoader, DataSaver
+
 
 class FragmentManager:
     """Manages molecular fragments and their properties."""
@@ -53,59 +55,11 @@ class FragmentManager:
 
     def save_to_file(self, filename='fragments_library.json'):
         """Save fragments library to JSON file."""
-        serializable_data = {}
-        for frag_id, frag_data in self.fragments.items():
-            serializable_data[frag_id] = {
-                'smiles': frag_data['smiles'],
-                'type': frag_data['type'],
-                'connection_points': frag_data['connection_points'],
-                'replacement_groups': frag_data['replacement_groups'],
-                'num_atoms': frag_data['num_atoms']
-            }
-
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(serializable_data, f, indent=2, ensure_ascii=False)
-
-        print(f"Fragment library saved to: {filename}")
-        return True
+        return DataSaver.save_fragment_library(self, filename)
 
     def load_from_file(self, filename='fragments_library.json'):
         """Load fragments library from JSON file."""
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                loaded_data = json.load(f)
-
-            self.fragments.clear()
-            loaded_count = 0
-
-            for frag_id, frag_data in loaded_data.items():
-                mol = Chem.MolFromSmiles(frag_data['smiles'])
-                if mol:
-                    self.fragments[frag_id] = {
-                        'molecule': mol,
-                        'type': frag_data['type'],
-                        'connection_points': frag_data['connection_points'],
-                        'replacement_groups': frag_data['replacement_groups'],
-                        'smiles': frag_data['smiles'],
-                        'num_atoms': frag_data['num_atoms']
-                    }
-                    loaded_count += 1
-                else:
-                    print(f"Warning: Could not parse SMILES for fragment {frag_id}")
-
-            print(f"Fragment library loaded from: {filename}")
-            print(f"Fragments loaded: {loaded_count}")
-            return True
-
-        except FileNotFoundError:
-            print(f"File not found: {filename}")
-            return False
-        except json.JSONDecodeError as e:
-            print(f"Invalid JSON format in file {filename}: {e}")
-            return False
-        except Exception as e:
-            print(f"Error loading file: {e}")
-            return False
+        return DataLoader.load_fragment_library(filename, self)
 
     def get_fragment_statistics(self):
         """Get statistics about fragments in the library."""

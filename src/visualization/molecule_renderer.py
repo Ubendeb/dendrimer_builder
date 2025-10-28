@@ -23,6 +23,7 @@ class MoleculeRenderer:
         Args:
             mol: Molecule to render
             highlight_atoms: Atoms to highlight
+            highlight_bonds: Bonds to highlight
             title: Name of molecule
             display_props: List of property names to display on atoms
 
