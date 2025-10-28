@@ -76,7 +76,7 @@ class ChemistryOperations:
         """
         Соединяет две уже уменьшенные молекулы через указанные атомы соединения.
         """
-        print(f"\n=== ВЫПОЛНЕНИЕ CONNECT ===")
+        print(f"\n=== Выполнение connect ===")
         print(f"Базовая молекула: атом {base_conn_idx}")
         print(f"Дополнительная молекула: атом {additional_conn_idx}")
 
