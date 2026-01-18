@@ -227,3 +227,230 @@ class MoleculeRenderer:
         print(f"Атом соединения: {mol.GetAtomWithIdx(connection_atom_idx).GetSymbol()}({connection_atom_idx})")
         print(f"Replacement group: {replacement_group_smiles}")
         print(f"Максимальная глубина обхода: {max_depth}")
+
+    def visualize_whole_molecule(self, mol, title="Molecular Graph"):
+        """
+        Визуализирует всю молекулу в виде графа.
+
+        Args:
+            mol: Молекула для визуализации
+            title: Заголовок графика
+
+        Returns:
+            Множество индексов всех атомов в молекуле
+        """
+        if mol is None:
+            print("Молекула не задана")
+            return set()
+
+        print(f"Визуализация всей молекулы: {title}")
+        print(f"Общее количество атомов: {mol.GetNumAtoms()}")
+        print(f"Общее количество связей: {mol.GetNumBonds()}")
+
+        # Собираем все атомы и связи
+        all_atoms = set(range(mol.GetNumAtoms()))
+        all_bonds = set(range(mol.GetNumBonds()))
+
+        # Создаем визуализацию
+        fig, ax = plt.subplots(figsize=(14, 10))
+
+        # Строим граф используя первый атом как корень
+        if all_atoms:
+            root_atom_idx = 0
+            graph_layout, levels = self._build_molecule_graph_layout(mol, all_atoms, root_atom_idx)
+            self._draw_molecule_graph(ax, mol, graph_layout, all_bonds)
+            self._configure_molecule_plot(ax, graph_layout, title, all_atoms)
+
+        self._print_molecule_info(all_atoms, all_bonds)
+
+        return all_atoms
+
+    def _build_molecule_graph_layout(self, mol, all_atoms, root_atom_idx):
+        """
+        Строит layout для всей молекулы.
+
+        Args:
+            mol: Молекула
+            all_atoms: Множество всех атомов
+            root_atom_idx: Индекс корневого атома
+
+        Returns:
+            graph_layout: Словарь с координатами атомов {idx: (x, y)}
+            levels: Уровни в дереве
+        """
+        graph_layout = {}
+        levels = {}
+        visited = set()
+
+        def bfs_layout(start_idx):
+            queue = deque([(start_idx, 0, 0)])
+            max_pos_at_level = {}
+
+            while queue:
+                current_idx, depth, horizontal_pos = queue.popleft()
+
+                if current_idx in visited:
+                    continue
+
+                visited.add(current_idx)
+
+                # Определяем позицию по горизонтали для текущего уровня
+                if depth not in max_pos_at_level:
+                    max_pos_at_level[depth] = 0
+                else:
+                    max_pos_at_level[depth] += 1
+
+                x = max_pos_at_level[depth]
+                y = -depth
+
+                graph_layout[current_idx] = (x, y)
+
+                if depth not in levels:
+                    levels[depth] = []
+                levels[depth].append(current_idx)
+
+                # Добавляем соседей в очередь
+                current_atom = mol.GetAtomWithIdx(current_idx)
+                neighbors = list(current_atom.GetNeighbors())
+
+                # Сортируем соседей для более предсказуемого layout
+                neighbors.sort(key=lambda x: x.GetIdx())
+
+                for i, neighbor in enumerate(neighbors):
+                    neighbor_idx = neighbor.GetIdx()
+                    if neighbor_idx not in visited and neighbor_idx in all_atoms:
+                        queue.append((neighbor_idx, depth + 1, i))
+
+        # Запускаем BFS с корневого атома
+        bfs_layout(root_atom_idx)
+
+        # Обрабатываем несвязные компоненты (если есть)
+        disconnected_atoms = all_atoms - visited
+        if disconnected_atoms:
+            print(f"Обнаружены несвязные компоненты: {len(disconnected_atoms)} атомов")
+            start_x = max([x for x, y in graph_layout.values()]) + 2 if graph_layout else 0
+            for i, atom_idx in enumerate(disconnected_atoms):
+                graph_layout[atom_idx] = (start_x + i, 0)
+                if 0 not in levels:
+                    levels[0] = []
+                levels[0].append(atom_idx)
+
+        return graph_layout, levels
+
+    def _draw_molecule_graph(self, ax, mol, graph_layout, all_bonds):
+        """
+        Рисует граф молекулы.
+
+        Args:
+            ax: Ось matplotlib
+            mol: Молекула
+            graph_layout: Расположение атомов
+            all_bonds: Все связи молекулы
+        """
+        # Рисуем связи
+        for bond_idx in all_bonds:
+            bond = mol.GetBondWithIdx(bond_idx)
+            begin_idx = bond.GetBeginAtomIdx()
+            end_idx = bond.GetEndAtomIdx()
+
+            if begin_idx in graph_layout and end_idx in graph_layout:
+                x1, y1 = graph_layout[begin_idx]
+                x2, y2 = graph_layout[end_idx]
+
+                # Определяем стиль линии в зависимости от типа связи
+                bond_type = bond.GetBondType()
+                if bond_type == Chem.rdchem.BondType.SINGLE:
+                    linestyle = '-'
+                    linewidth = 2
+                elif bond_type == Chem.rdchem.BondType.DOUBLE:
+                    linestyle = '--'
+                    linewidth = 3
+                elif bond_type == Chem.rdchem.BondType.TRIPLE:
+                    linestyle = ':'
+                    linewidth = 4
+                else:
+                    linestyle = '-'
+                    linewidth = 2
+
+                ax.plot([x1, x2], [y1, y2], linestyle, color='black',
+                        linewidth=linewidth, alpha=0.7)
+
+        # Рисуем атомы
+        for atom_idx, (x, y) in graph_layout.items():
+            atom = mol.GetAtomWithIdx(atom_idx)
+            symbol = atom.GetSymbol()
+
+            # Выбираем цвет в зависимости от элемента
+            color = self._get_atom_color(atom)
+
+            circle = plt.Circle((x, y), 0.4, fill=True, color=color,
+                                ec='black', lw=2, alpha=0.8)
+            ax.add_patch(circle)
+
+            # Подписываем атом
+            label = f'{symbol}\n({atom_idx})'
+            ax.text(x, y, label, ha='center', va='center',
+                    fontweight='bold', fontsize=9)
+
+    def _get_atom_color(self, atom):
+        """
+        Возвращает цвет для атома в зависимости от элемента.
+
+        Args:
+            atom: Атом
+
+        Returns:
+            Цвет для отображения
+        """
+        element = atom.GetSymbol()
+        color_map = {
+            'C': 'lightgray',
+            'O': 'red',
+            'N': 'blue',
+            'H': 'white',
+            'S': 'yellow',
+            'P': 'orange',
+            'F': 'green',
+            'Cl': 'lime',
+            'Br': 'darkred',
+            'I': 'purple'
+        }
+        return color_map.get(element, 'lightblue')
+
+    def _configure_molecule_plot(self, ax, graph_layout, title, all_atoms):
+        """
+        Настраивает внешний вид графика молекулы.
+
+        Args:
+            ax: Ось matplotlib
+            graph_layout: Расположение атомов
+            title: Заголовок
+            all_atoms: Все атомы молекулы
+        """
+        if not graph_layout:
+            return
+
+        x_coords = [x for x, y in graph_layout.values()]
+        y_coords = [y for x, y in graph_layout.values()]
+
+        padding = 1.5
+        ax.set_xlim(min(x_coords) - padding, max(x_coords) + padding)
+        ax.set_ylim(min(y_coords) - padding, max(y_coords) + padding)
+        ax.set_aspect('equal')
+
+        ax.set_title(f'{title}\nВсего атомов: {len(all_atoms)}',
+                     fontsize=14, pad=20, fontweight='bold')
+        ax.axis('off')
+
+    def _print_molecule_info(self, all_atoms, all_bonds):
+        """
+        Выводит информацию о молекуле.
+
+        Args:
+            all_atoms: Все атомы
+            all_bonds: Все связи
+        """
+        print(f"\nИнформация о молекуле:")
+        print(f"Всего атомов: {len(all_atoms)}")
+        print(f"Всего связей: {len(all_bonds)}")
+        print(f"Атомы: {sorted(all_atoms)}")
