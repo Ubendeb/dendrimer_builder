@@ -15,23 +15,121 @@ class FragmentManager:
         self.fragments = {}
         self.fragment_counter = 0
 
-    def add_fragment(self, fragment, fragment_type="core", name=None, connection_atoms=None, replacement_groups=None):
-        """Add a new fragment to the manager."""
+    def add_fragment(self, fragment, fragment_type="core", name=None,
+                     connection_atoms=None, replacement_groups=None):
+        """Add a new fragment to the manager with detailed connection information."""
         if fragment is None:
             raise ValueError("Fragment molecule cannot be None")
 
-        fragment_id = f"{fragment_type}_{self.fragment_counter}" if not name else name
+        fragment_id = self._generate_fragment_id(fragment_type, name)
+        connection_details = self._extract_connection_details(
+            fragment, connection_atoms, replacement_groups
+        )
 
-        self.fragments[fragment_id] = {
+        self.fragments[fragment_id] = self._create_fragment_data(
+            fragment, fragment_type, connection_atoms,
+            replacement_groups, connection_details
+        )
+
+        self.fragment_counter += 1
+        return fragment_id
+
+    def _create_fragment_data(self, fragment, fragment_type, connection_atoms,
+                              replacement_groups, connection_details):
+        """Create the complete fragment data dictionary."""
+        return {
             'molecule': fragment,
             'type': fragment_type,
             'connection_points': connection_atoms or [],
+            'connection_details': connection_details,
             'replacement_groups': replacement_groups or [],
             'smiles': Chem.MolToSmiles(fragment),
-            'num_atoms': fragment.GetNumAtoms()
+            'num_atoms': fragment.GetNumAtoms(),
+            'properties': self._extract_atom_properties(fragment)
         }
-        self.fragment_counter += 1
-        return fragment_id
+
+    def _extract_atom_properties(self, mol):
+        """Extract properties from all atoms in the molecule."""
+        properties = []
+        for atom in mol.GetAtoms():
+            atom_props = self._get_basic_atom_properties(atom)
+            self._add_custom_atom_properties(atom, atom_props)
+            properties.append(atom_props)
+        return properties
+
+    def _get_basic_atom_properties(self, atom):
+        """Get basic chemical properties of an atom."""
+        return {
+            'index': atom.GetIdx(),
+            'symbol': atom.GetSymbol(),
+            'charge': atom.GetFormalCharge(),
+            'hybridization': str(atom.GetHybridization()),
+            'is_aromatic': atom.GetIsAromatic(),
+            'degree': atom.GetDegree(),
+            'explicit_valence': atom.GetExplicitValence()
+        }
+
+    def _add_custom_atom_properties(self, atom, atom_props):
+        """Add custom properties (like is_connection, connection_type) to atom properties."""
+        custom_props = ["is_connection", "connection_type", "replacement_group"]
+        for prop in custom_props:
+            if atom.HasProp(prop):
+                atom_props[prop] = atom.GetProp(prop)
+
+    def _generate_fragment_id(self, fragment_type, name):
+        """Generate a unique fragment ID."""
+        if name:
+            return name
+        return f"{fragment_type}_{self.fragment_counter}"
+
+    def _extract_connection_details(self, fragment, connection_atoms, replacement_groups):
+        """Extract detailed information about connection points."""
+        if not connection_atoms:
+            return []
+
+        connection_details = []
+
+        for i, atom_info in enumerate(self._get_atom_info_pairs(connection_atoms, replacement_groups)):
+            atom_idx, replacement = atom_info
+            atom = fragment.GetAtomWithIdx(atom_idx)
+
+            connection_details.append(self._create_connection_detail(
+                atom, atom_idx, replacement, i
+            ))
+
+        return connection_details
+
+    def _create_connection_detail(self, atom, atom_idx, replacement, position):
+        """Create a dictionary with detailed connection information for a single atom."""
+        connection_type = self._get_atom_property(atom, "connection_type")
+
+        return {
+            'atom_index': atom_idx,
+            'replacement_group': replacement,
+            'is_connection': self._get_atom_property(atom, "is_connection", default="false"),
+            'connection_type': connection_type or self._get_default_connection_type(position),
+            'atom_symbol': atom.GetSymbol(),
+            'atom_charge': atom.GetFormalCharge()
+        }
+
+    def _get_default_connection_type(self, position):
+        """Get default connection type based on position in connection list. TODO  может приводить к ошибкам"""
+        return "to_core" if position == 0 else "to_branch"
+
+    def _get_atom_property(self, atom, prop_name, default=None):
+        """Get a property from atom if it exists."""
+        if atom.HasProp(prop_name):
+            return atom.GetProp(prop_name)
+        return default
+
+    def _get_atom_info_pairs(self, connection_atoms, replacement_groups):
+        """Generate pairs of atom indices and their replacement groups."""
+        if connection_atoms and replacement_groups:
+            return zip(connection_atoms, replacement_groups)
+        elif connection_atoms:
+            return [(idx, None) for idx in connection_atoms]
+        return []
+
 
     def get_fragment(self, fragment_id):
         """Retrieve a fragment by ID."""
