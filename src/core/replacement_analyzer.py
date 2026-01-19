@@ -1,0 +1,196 @@
+from src.core.replacers.bond import BondBreakReplacementParser
+from src.core.replacers.hydrogen import HydrogenReplacementParser
+from src.core.replacers.index_tail import TailReplacementParser
+from src.core.replacers.smiles_tail import SmilesReplacementParser
+
+
+class ReplacementAnalyzer:
+    """Анализирует структуру replacement group и находит соответствующие атомы в молекуле."""
+
+    def analyze_replacement_structure(self, mol, connection_atom_idx):
+        """
+        Анализирует структуру replacement group и находит соответствующие атомы в молекуле.
+        Возвращает словарь с ключами:
+        - 'atoms': список атомов для удаления/замещения
+        - 'bond_to_break': индекс связи для разрыва (если есть)
+        """
+        self._print_analysis_header()
+        connection_atom = mol.GetAtomWithIdx(connection_atom_idx)
+        replacement_spec = connection_atom.GetProp('replacement_group')
+
+        replacement_info = self._parse_replacement_spec(replacement_spec, mol, connection_atom_idx)
+        self._print_replacement_analysis(mol, connection_atom, connection_atom_idx, replacement_spec, replacement_info)
+
+        return self._process_replacement_cases(mol, connection_atom, connection_atom_idx, replacement_info)
+
+    def _parse_replacement_spec(self, replacement_spec, mol, connection_atom_idx):
+        """Парсит спецификацию replacement group."""
+        parser = self._get_replacement_parser(replacement_spec)
+        return parser.parse(replacement_spec, mol, connection_atom_idx)
+
+    def _get_replacement_parser(self, replacement_spec):
+        """Возвращает appropriate parser based on replacement specification format."""
+        if replacement_spec == "H":
+            return HydrogenReplacementParser()
+        elif '_' in replacement_spec:
+            return TailReplacementParser()
+        elif '#' in replacement_spec or '=' in replacement_spec:
+            return BondBreakReplacementParser()
+        else:
+            return SmilesReplacementParser()
+
+    def _print_replacement_analysis(self, mol, connection_atom, connection_atom_idx, replacement_spec,
+                                    replacement_info):
+        """Выводит анализ replacement group."""
+        self._print_basic_info(connection_atom, connection_atom_idx, replacement_spec)
+
+        replacement_mol = replacement_info.get('mol')
+        if replacement_mol:
+            self._analyze_replacement_structure(replacement_mol)
+
+        self._analyze_connection_neighbors(mol, connection_atom, connection_atom_idx)
+
+        break_bond_info = replacement_info.get('break_bond')
+        if break_bond_info:
+            bond_to_break = self._find_bond_to_break(mol, connection_atom_idx, break_bond_info)
+            print(f"Связь для разрыва: {bond_to_break}")
+
+    def _process_replacement_cases(self, mol, connection_atom, connection_atom_idx, replacement_info):
+        """Обрабатывает различные случаи replacement."""
+        tail_atoms = replacement_info.get('tail_atoms', [])
+        if tail_atoms:
+            print(f"Атомы хвоста по original_index: {tail_atoms}")
+            return {'atoms': tail_atoms, 'bond_to_break': None}
+
+        # Специальная обработка для водорода
+        replacement_mol = replacement_info.get('mol')
+        if replacement_mol and replacement_mol.GetAtomWithIdx(0).GetSymbol() == "H":
+            print("   Для водорода - возвращаем пустой список (удаление без замещения)")
+            return {'atoms': [], 'bond_to_break': None}
+
+        # Специальная обработка для связей (=1, #3 и т.д.)
+        break_bond_info = replacement_info.get('break_bond')
+        if break_bond_info:
+            bond_to_break = self._find_bond_to_break(mol, connection_atom_idx, break_bond_info)
+            print(f"   Для спецификации связи - разрыв связи {bond_to_break}")
+            return {'atoms': [], 'bond_to_break': bond_to_break}
+
+        atoms = self._find_matching_branch(mol, connection_atom, connection_atom_idx, replacement_mol)
+        return {'atoms': atoms, 'bond_to_break': None}
+
+    def _find_bond_to_break(self, mol, connection_atom_idx, break_bond_info):
+        """Находит связь для разрыва на основе спецификации."""
+        bond_type, target_idx = break_bond_info
+        connection_atom = mol.GetAtomWithIdx(connection_atom_idx)
+
+        for neighbor in connection_atom.GetNeighbors():
+            if self._get_original_index(neighbor) == target_idx:
+                bond = mol.GetBondBetweenAtoms(connection_atom_idx, neighbor.GetIdx())
+                return bond.GetIdx() if bond else None
+        return None
+
+    def _get_original_index(self, atom):
+        """Возвращает original index атома из свойств или использует текущий индекс."""
+        if atom.HasProp('original_index'):
+            return int(atom.GetProp('original_index'))
+        return atom.GetIdx()
+
+    def _print_analysis_header(self):
+        """Выводит заголовок анализа."""
+        print(f"\n{'=' * 60}")
+        print(f"Детальный анализ структуры")
+        print(f"{'=' * 60}")
+
+    def _print_basic_info(self, connection_atom, connection_atom_idx, replacement_group_smiles):
+        """Выводит базовую информацию."""
+        print(f"Атом соединения: {connection_atom.GetSymbol()}({connection_atom_idx})")
+        print(f"Replacement group: {replacement_group_smiles}")
+
+    def _analyze_replacement_structure(self, replacement_mol):
+        """Анализирует структуру replacement group."""
+        print(f"\nСтруктура replacement_group:")
+        if replacement_mol is None:
+            print("   Хвостовая спецификация - молекула не требуется")
+            return
+
+        for i, atom in enumerate(replacement_mol.GetAtoms()):
+            neighbors = [f"{n.GetSymbol()}({n.GetIdx()})" for n in atom.GetNeighbors()]
+            print(f"   Атом {i}: {atom.GetSymbol()} → соседи: {neighbors}")
+
+    def _analyze_connection_neighbors(self, mol, connection_atom, connection_atom_idx):
+        """Анализирует соседей атома соединения."""
+        print(f"\nСоседи атома соединения:")
+        neighbors = list(connection_atom.GetNeighbors())
+        for i, neighbor in enumerate(neighbors):
+            neighbor_neighbors = [
+                f"{n.GetSymbol()}({n.GetIdx()})" for n in neighbor.GetNeighbors()
+                if n.GetIdx() != connection_atom_idx
+            ]
+            print(f"   Сосед {i}: {neighbor.GetSymbol()}({neighbor.GetIdx()}) → соседи: {neighbor_neighbors}")
+
+    def _find_matching_branch(self, mol, connection_atom, connection_atom_idx, replacement_mol):
+        """Находит соответствующую ветку в молекуле."""
+        print(f"\nПоиск соответствующей ветки:")
+        if replacement_mol is None:
+            return []
+        first_replacement_atom = replacement_mol.GetAtomWithIdx(0)
+        expected_symbol = first_replacement_atom.GetSymbol()
+        expected_degree = first_replacement_atom.GetDegree()
+
+        print(f"   Первый атом replacement: {expected_symbol}, степень: {expected_degree}")
+
+        candidate_atoms = []
+        for neighbor in connection_atom.GetNeighbors():
+            if neighbor.GetSymbol() == expected_symbol:
+                print(f"\n   Найден кандидат: {neighbor.GetSymbol()}({neighbor.GetIdx()})")
+                branch_atoms = self._validate_branch_structure(mol, neighbor, connection_atom_idx, replacement_mol)
+                if branch_atoms:
+                    candidate_atoms = branch_atoms
+                    print(f"   Правильная ветка найдена: {branch_atoms}")
+                    break
+                else:
+                    print(f"   Структура не соответствует replacement group")
+
+        return candidate_atoms
+
+    def _validate_branch_structure(self, mol, start_atom, connection_atom_idx, replacement_mol):
+        """
+        Проверяет, соответствует ли структура ветки replacement group.
+        """
+        visited = set([connection_atom_idx])
+        branch_atoms = []
+        replacement_atoms = list(replacement_mol.GetAtoms())
+
+        def validate(atom, replacement_idx):
+            atom_idx = atom.GetIdx()
+
+            if atom_idx in visited:
+                return True
+
+            if replacement_idx >= len(replacement_atoms):
+                return False
+
+            expected_atom = replacement_atoms[replacement_idx]
+            if atom.GetSymbol() != expected_atom.GetSymbol():
+                return False
+
+            visited.add(atom_idx)
+            branch_atoms.append(atom_idx)
+
+            unvisited_neighbors = self._get_unvisited_neighbors(atom, visited)
+            expected_degree = expected_atom.GetDegree() - (1 if replacement_idx > 0 else 0)
+
+            if len(unvisited_neighbors) != expected_degree:
+                return False
+
+            for neighbor in unvisited_neighbors:
+                if not validate(neighbor, replacement_idx + 1):
+                    return False
+
+            return True
+
+        return branch_atoms if validate(start_atom, 0) else []
+
+    def _get_unvisited_neighbors(self, atom, visited):
+        """Возвращает непосещенных соседей атома."""
+        return [neighbor for neighbor in atom.GetNeighbors() if neighbor.GetIdx() not in visited]

@@ -1,0 +1,47 @@
+{
+  "Methyl_acrylate": {
+    "smiles": "C=CC(OC)=O",
+    "type": "custom",
+    "connection_points": [
+      0,
+      2
+    ],
+    "replacement_groups": [
+      "=1",
+      "OCH3"
+    ],
+    "num_atoms": 6
+  },
+  "Ethylenediamine": {
+    "smiles": "NCCN",
+    "type": "custom",
+    "connection_points": [
+      0,
+      0,
+      3
+    ],
+    "replacement_groups": [
+      "H",
+      "H",
+      "H"
+    ],
+    "num_atoms": 4
+  },
+  "NCCN_core": {
+    "smiles": "NCCN",
+    "type": "custom",
+    "connection_points": [
+      0,
+      0,
+      3,
+      3
+    ],
+    "replacement_groups": [
+      "H",
+      "H",
+      "H",
+      "H"
+    ],
+    "num_atoms": 4
+  }
+}
